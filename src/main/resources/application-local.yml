@@ -1,0 +1,11 @@
+# Perfil de desarrollo: lo activa ./mvnw spring-boot:run.
+# Nunca usar estos valores en un servidor publico.
+ritech:
+  jwt:
+    secret: clave-de-desarrollo-ritech-solo-local-0123456789
+  semilla:
+    password-inicial: RiTech2026*
+
+logging:
+  level:
+    com.ritech: DEBUG
