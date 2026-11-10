@@ -69,7 +69,7 @@ public class SeguridadConfig {
     }
 
     @Bean
-    CorsConfigurationSource cors(@Value("${ritech.cors.origenes}") String origenes) {
+    CorsConfigurationSource corsConfigurationSource(@Value("${ritech.cors.origenes}") String origenes) {
         CorsConfiguration c = new CorsConfiguration();
         c.setAllowedOrigins(Arrays.stream(origenes.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
