@@ -54,9 +54,32 @@ Usuarios semilla: `admin@ritech.co`, `gestor@ritech.co`, `inspector@ritech.co`, 
 ```bash
 ./mvnw test
 ```
-No necesitan MySQL. Comprueban que todas las entidades y consultas JPQL compilan, que la aplicación
-arranca con la seguridad activa, la traducción de errores SQL, el JWT y el aspecto de auditoría.
-La lógica de los triggers y procedimientos se prueba con los casos CP-0xx del propio script.
+Son 90 pruebas que no necesitan MySQL:
+
+| Grupo | Qué comprueba |
+|---|---|
+| Servicios (`*ServicioTest`) | Reglas del backend por historia: EORI y país UE, usuarios y roles, pesos y código de lote, kg de aporte, origen congelado tras aprobar, observación obligatoria al rechazar, vigencia de certificados y soportes, reglas UE válidas, estados de la orden, revalidación antes de asignar, cadena de envío |
+| `PermisosPorRolTest` | Peticiones HTTP con JWT real para los 4 roles del script: quién puede y quién recibe 403; usuario inactivado pierde el acceso; permisos leídos en cada petición |
+| `MapeoJpaTest`, `ArranqueTest` | Todas las entidades y consultas JPQL compilan; la aplicación arranca con la seguridad activa |
+| `ManejadorErroresTest` | Errores de MySQL → 422 (trigger), 400 (CHECK), 409 (duplicado / con hijos) |
+| `ScriptMySqlTest` | El script se lee igual que en Workbench (DELIMITER, comentarios) |
+
+### Flujo completo contra MySQL real
+
+`FlujoExportacionMySqlIT` carga `database/db_ritech_exports.sql` en una base aparte (`db_ritech_pruebas`;
+**nunca toca `db_ritech_exports`**) y recorre la exportación con los triggers y procedimientos reales:
+login de los 4 usuarios → productor y fincas → lote y aportes (incluidos los rechazos de los triggers) →
+cierre de trazabilidad → certificado fitosanitario e inspección (el lote pasa a APROBADO) → validación
+CUMPLE con 6 reglas → orden y asignación (la base calcula `valor_total` y pasa el lote a ASIGNADO) →
+auditoría con el autor real de cada cambio → el cliente solo ve lo que compró → envío EN_TRANSITO y lote
+EXPORTADO.
+
+Se omite si no existe la variable `RITECH_MYSQL_URL`. Para correrla en local:
+```powershell
+$env:RITECH_MYSQL_URL="jdbc:mysql://localhost:3306"; $env:RITECH_MYSQL_PASSWORD="tu-clave"
+./mvnw test -Dtest=FlujoExportacionMySqlIT
+```
+En GitHub corre sola en cada push (`.github/workflows/pruebas.yml`, con un MySQL 8 de servicio).
 
 ## Endpoints por historia de usuario
 

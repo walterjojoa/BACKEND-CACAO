@@ -8,7 +8,7 @@ spring:
     name: ritech-exports
   datasource:
     # La base se crea con database/db_ritech_exports.sql (MySQL 8.0.16+).
-    url: ${DB_URL:jdbc:mysql://localhost:3306/db_ritech_exports?connectionTimeZone=LOCAL&forceConnectionTimeZoneToSession=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/db_ritech_exports?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=LOCAL&forceConnectionTimeZoneToSession=true}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:}
   jpa:

@@ -1,0 +1,39 @@
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: pruebas-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppruebas-ci"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Pruebas unitarias, de permisos y de mapeo
+        run: sh mvnw -B test
+
+      - name: Flujo completo contra MySQL 8 (script real, triggers y procedimientos)
+        env:
+          RITECH_MYSQL_URL: jdbc:mysql://127.0.0.1:3306
+          RITECH_MYSQL_USER: root
+          RITECH_MYSQL_PASSWORD: pruebas-ci
+        run: sh mvnw -B test -Dtest=FlujoExportacionMySqlIT
