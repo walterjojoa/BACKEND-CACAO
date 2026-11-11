@@ -48,6 +48,7 @@ Usuarios semilla: `admin@ritech.co`, `gestor@ritech.co`, `inspector@ritech.co`, 
 | `SEED_PASSWORD` | Contraseña inicial de los usuarios semilla | vacía (no toca nada) |
 | `ALLOWED_ORIGINS` | Orígenes CORS del frontend, separados por coma | `http://localhost:5173,http://localhost:3000` |
 | `STORAGE_DIR` | Carpeta de soportes de certificados | `./storage` |
+| `EMPRESA_RAZON_SOCIAL`, `EMPRESA_NIT`, `EMPRESA_DIRECCION`, `EMPRESA_CIUDAD`, `EMPRESA_PAIS`, `EMPRESA_EMAIL` | Exportador impreso en la factura, la lista de empaque y la DDS | `RiTech SAS`, `Colombia`; lo vacío no se imprime |
 
 ## Pruebas
 
@@ -99,10 +100,11 @@ En GitHub corre sola en cada push (`.github/workflows/pruebas.yml`, con un MySQL
 | SCRUM-21 Reglas UE | `GET/POST /api/reglas`, `PUT /api/reglas/{id}`, `PATCH /api/reglas/{id}/activa?valor=`, `GET /api/reglas/parametros` |
 | SCRUM-22 Validación | `POST /api/lotes/{id}/validar`, `GET /api/lotes/{id}/dictamen` |
 | SCRUM-23 Alertas | `GET /api/certificados/por-vencer?dias=30` + tarea diaria que marca `VENCIDO` |
+| SCRUM-24 DDS EUDR | `GET /api/lotes/{id}/dds` (PDF), `GET /api/lotes/{id}/dds/geojson` (parcelas para TRACES). Exige trazabilidad al 100 % y dictamen `CUMPLE` |
 | SCRUM-25 Órdenes | `GET/POST /api/ordenes`, `GET/PUT /api/ordenes/{id}`, `PATCH /api/ordenes/{id}/estado` |
 | SCRUM-26 Asignar lotes | `POST /api/ordenes/{id}/lotes`, `PUT/DELETE /api/ordenes/{id}/lotes/{idLote}` |
+| SCRUM-27 Factura y lista de empaque | `GET /api/ordenes/{id}/factura`, `GET /api/ordenes/{id}/lista-empaque` (PDF; `?descargar=true` para bajarlo). Solo órdenes `CONFIRMADA`, `EN_TRANSITO` o `ENTREGADA`; quedan registradas en `documentos_exportacion` como FC-/LE-AAAA-NNNN |
 | SCRUM-28 Programar envío | `GET/POST /api/transportistas`, `POST /api/ordenes/{id}/envios` |
 | SCRUM-29/30 Seguimiento | `POST /api/envios/{id}/seguimiento`, `GET /api/envios`, `GET /api/envios/{id}` |
-
-**Pendientes, de los Sprints 3 y 4:** SCRUM-24 (Declaración DDS EUDR), SCRUM-27 (factura y lista de empaque
-en PDF), SCRUM-31 (tablero de indicadores) y SCRUM-32 (exportar reportes a hoja de cálculo).
+| SCRUM-31 Tablero | `GET /api/reportes/tablero`: órdenes por estado, kg exportados, valor por mes y moneda (12 meses), lotes aprobados/rechazados, envíos en tránsito o con incidencia. Personal interno, no clientes |
+| SCRUM-32 Exportar reportes | `GET /api/reportes/{ordenes\|lotes\|envios}?formato=xlsx\|csv&desde=AAAA-MM-DD&hasta=AAAA-MM-DD` (gestor y administrador) |

@@ -43,6 +43,14 @@ ritech:
     password-inicial: ${SEED_PASSWORD:}
   certificados:
     dias-alerta: 30
+  # Exportador que se imprime en la factura, la lista de empaque y la DDS EUDR.
+  empresa:
+    razon-social: ${EMPRESA_RAZON_SOCIAL:RiTech SAS}
+    nit: ${EMPRESA_NIT:}
+    direccion: ${EMPRESA_DIRECCION:}
+    ciudad: ${EMPRESA_CIUDAD:}
+    pais: ${EMPRESA_PAIS:Colombia}
+    email: ${EMPRESA_EMAIL:}
 
 springdoc:
   swagger-ui:

@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,8 +14,12 @@ import com.ritech.exports.comercial.ClienteServicio;
 import com.ritech.exports.comercial.ClienteUe;
 import com.ritech.exports.comun.ApiException;
 import com.ritech.exports.config.DatosIniciales;
+import com.ritech.exports.documentos.DocumentoServicio;
 import com.ritech.exports.lotes.InspeccionServicio;
 import com.ritech.exports.ordenes.OrdenServicio;
+import com.ritech.exports.reportes.ExportacionServicio;
+import com.ritech.exports.reportes.Tabla;
+import com.ritech.exports.reportes.TableroServicio;
 import com.ritech.exports.seguridad.JwtServicio;
 import com.ritech.exports.usuarios.Permiso;
 import com.ritech.exports.usuarios.Rol;
@@ -73,6 +79,12 @@ class PermisosPorRolTest {
     OrdenServicio ordenes;
     @MockitoBean
     InspeccionServicio inspecciones;
+    @MockitoBean
+    DocumentoServicio documentos;
+    @MockitoBean
+    TableroServicio tablero;
+    @MockitoBean
+    ExportacionServicio exportacion;
 
     @Autowired
     MockMvc mvc;
@@ -188,6 +200,92 @@ class PermisosPorRolTest {
         mvc.perform(json(post("/api/ordenes"), cliente, "{\"idCliente\":1,\"incoterm\":\"FOB\"}"))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/ordenes").header("Authorization", inspector)).andExpect(status().isForbidden());
+    }
+
+    // ---------- SCRUM-27 / SCRUM-24: documentos ----------
+
+    @Test
+    void laFacturaSaleEnPdfParaElGestorYElClientePeroNoParaElInspector() throws Exception {
+        when(documentos.factura(7)).thenReturn(new DocumentoServicio.Archivo("FC-2026-0007.pdf",
+                DocumentoServicio.PDF, "%PDF-1.4".getBytes()));
+
+        mvc.perform(get("/api/ordenes/7/factura").header("Authorization", gestor))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"FC-2026-0007.pdf\""));
+        mvc.perform(get("/api/ordenes/7/factura?descargar=true").header("Authorization", cliente))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"FC-2026-0007.pdf\""));
+        mvc.perform(get("/api/ordenes/7/factura").header("Authorization", inspector)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unaOrdenEnBorradorNoTieneFacturaYElErrorLlegaEnJson() throws Exception {
+        when(documentos.listaEmpaque(3)).thenThrow(ApiException.invalido("Los documentos se emiten para ordenes "
+                + "confirmadas; la orden ORD-2026-0003 esta BORRADOR."));
+
+        mvc.perform(get("/api/ordenes/3/lista-empaque").header("Authorization", gestor)
+                        .header("Accept", "application/pdf, application/json"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("BORRADOR")));
+    }
+
+    @Test
+    void laDdsLaPideQuienConsultaLotes() throws Exception {
+        when(documentos.ddsGeojson(5)).thenReturn(new DocumentoServicio.Archivo("DDS-CAF-2026-0001.geojson",
+                DocumentoServicio.GEOJSON, "{}".getBytes()));
+
+        for (String quien : List.of(inspector, cliente, gestor)) {
+            mvc.perform(get("/api/lotes/5/dds/geojson").header("Authorization", quien))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType("application/geo+json"));
+        }
+        mvc.perform(get("/api/lotes/5/dds/geojson")).andExpect(status().isUnauthorized());
+    }
+
+    // ---------- SCRUM-31 / SCRUM-32: reportes ----------
+
+    @Test
+    void elTableroEsParaElPersonalInternoNoParaClientes() throws Exception {
+        when(tablero.tablero()).thenReturn(new TableroServicio.Tablero(java.util.Map.of("BORRADOR", 2L), 2,
+                java.math.BigDecimal.TEN, List.of(), java.util.Map.of(), 0, 0, java.util.Map.of(), 0, 0, List.of(),
+                java.time.LocalDateTime.now()));
+
+        for (String quien : List.of(admin, gestor, inspector)) {
+            mvc.perform(get("/api/reportes/tablero").header("Authorization", quien))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.ordenesPorEstado.BORRADOR").value(2));
+        }
+        mvc.perform(get("/api/reportes/tablero").header("Authorization", cliente)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void lasExportacionesSalenEnExcelOCsvConFiltroDeFechas() throws Exception {
+        when(exportacion.generar(ExportacionServicio.Reporte.ORDENES, java.time.LocalDate.of(2026, 1, 1),
+                java.time.LocalDate.of(2026, 3, 31)))
+                .thenReturn(new Tabla("ordenes", List.of("Orden"), List.of(List.of("ORD-2026-0001"))));
+
+        mvc.perform(get("/api/reportes/ordenes?formato=csv&desde=2026-01-01&hasta=2026-03-31")
+                        .header("Authorization", gestor))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("text/csv;charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"ordenes_desde_2026-01-01_hasta_2026-03-31.csv\""));
+        mvc.perform(get("/api/reportes/ordenes?desde=2026-01-01&hasta=2026-03-31").header("Authorization", admin))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        mvc.perform(get("/api/reportes/ordenes").header("Authorization", inspector)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/reportes/ordenes").header("Authorization", cliente)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unReporteOFormatoDesconocidoSeRechaza() throws Exception {
+        mvc.perform(get("/api/reportes/facturas").header("Authorization", gestor)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/reportes/lotes?formato=pdf").header("Authorization", gestor))
+                .andExpect(status().isUnprocessableEntity());
+        mvc.perform(get("/api/reportes/lotes?desde=10-01-2026").header("Authorization", gestor))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------- Tokens ----------
