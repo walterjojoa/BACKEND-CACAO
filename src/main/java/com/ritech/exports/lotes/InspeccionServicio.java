@@ -79,7 +79,11 @@ public class InspeccionServicio {
         i.setResultado(s.resultado());
         i.setObservaciones(obs == null || obs.isEmpty() ? null : obs);
         inspecciones.saveAndFlush(i);
-        em.refresh(i);
+        // InspeccionCalidad es @Immutable: Hibernate 6.6 no permite em.refresh() sobre una
+        // entidad inmutable recien insertada (UnsupportedLockAttemptException -> HTTP 500).
+        // Se saca del contexto y se vuelve a leer para traer los valores que pone la base.
+        em.detach(i);
+        i = inspecciones.findById(i.getIdInspeccion()).orElse(i);
         em.refresh(lote); // trg_insp_estado_ai acaba de mover el estado
         return new InspeccionRegistrada(i, lote.getEstadoLote());
     }
